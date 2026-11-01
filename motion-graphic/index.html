@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Journey to School - Slow Motion</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700&family=Roboto:wght@900&display=swap');
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #0f172a;
+            font-family: 'Roboto', sans-serif;
+        }
+
+        #scene {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(180deg, #1e1b4b 0%, #312e81 50%, #111827 100%);
+        }
+
+        /* Moving Background (Simulating travel) */
+        #road {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 200%;
+            height: 30%;
+            background: repeating-linear-gradient(
+                90deg,
+                transparent,
+                transparent 50px,
+                rgba(255, 255, 255, 0.1) 50px,
+                rgba(255, 255, 255, 0.1) 100px
+            );
+            border-top: 2px solid rgba(255, 255, 255, 0.2);
+            z-index: 1;
+        }
+
+        /* The Lead Actor */
+        #hero-container {
+            position: relative;
+            width: 350px;
+            height: 350px;
+            z-index: 10;
+            border-radius: 50%;
+            box-shadow: 0 0 30px rgba(56, 189, 248, 0.3);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: box-shadow 0.1s;
+        }
+
+        #hero-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 50%;
+            border: 4px solid #38bdf8;
+            background-color: #222;
+            filter: contrast(1.1) saturate(1.2); 
+            z-index: 2;
+        }
+
+        /* The Shield Effect */
+        #shield {
+            position: absolute;
+            width: 380px;
+            height: 380px;
+            border-radius: 50%;
+            border: 2px solid #00ffff;
+            box-shadow: 0 0 40px #00ffff, inset 0 0 40px #00ffff;
+            opacity: 0;
+            z-index: 5;
+            pointer-events: none;
+        }
+
+        /* Enemies (Bad Things) */
+        .enemy {
+            position: absolute;
+            padding: 12px 24px;
+            background: rgba(220, 38, 38, 0.9);
+            color: white;
+            font-weight: 900;
+            font-size: 20px;
+            border-radius: 8px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            box-shadow: 0 0 15px rgba(220, 38, 38, 0.8);
+            z-index: 20;
+            opacity: 0;
+            border: 2px solid #fca5a5;
+            white-space: nowrap;
+            text-shadow: 1px 1px 2px black;
+        }
+
+        /* Canvas for Particles */
+        #fx-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 15;
+        }
+
+        /* UI Elements */
+        #ui-container {
+            position: absolute;
+            top: 30px;
+            left: 30px;
+            z-index: 30;
+            color: #fff;
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        #progress-bar {
+            width: 200px;
+            height: 10px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 5px;
+            margin-top: 10px;
+            overflow: hidden;
+        }
+
+        #progress-fill {
+            width: 0%;
+            height: 100%;
+            background: #38bdf8;
+            box-shadow: 0 0 10px #38bdf8;
+        }
+
+        #school-sign {
+            position: absolute;
+            top: 20%;
+            right: -300px;
+            color: #4ade80;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 40px;
+            text-shadow: 0 0 20px #4ade80;
+            z-index: 5;
+            border: 3px solid #4ade80;
+            padding: 10px 20px;
+            border-radius: 10px;
+            background: rgba(0,0,0,0.5);
+        }
+
+        /* Screen Flash */
+        #flash {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: white;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 40;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="scene">
+        <div id="road"></div>
+        
+        <div id="ui-container">
+            <div style="font-size: 24px; font-weight: bold; text-shadow: 0 0 10px #38bdf8;">JOURNEY TO SCHOOL</div>
+            <div>Focus Level</div>
+            <div id="progress-bar"><div id="progress-fill"></div></div>
+        </div>
+
+        <div id="school-sign">SCHOOL AHEAD</div>
+
+        <!-- Replace src with your local image path -->
+        <div id="hero-container">
+            <div id="shield"></div>
+            <img id="hero-img" src="assets/hero.jpg" alt="Lead Actor" onerror="this.src='https://via.placeholder.com/350x350.png?text=Insert+hero.jpg'">
+        </div>
+
+        <canvas id="fx-canvas"></canvas>
+        <div id="flash"></div>
+    </div>
+
+    <script>
+        // --- Setup Canvas for Particle Effects ---
+        const canvas = document.getElementById('fx-canvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        class Particle {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.vx = (Math.random() - 0.5) * 15;
+                this.vy = (Math.random() - 0.5) * 15;
+                this.life = 1;
+                this.color = Math.random() > 0.5 ? '#00ffff' : '#ffffff';
+                this.size = Math.random() * 4 + 2;
+            }
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vx *= 0.95;
+                this.vy *= 0.95;
+                this.life -= 0.02;
+            }
+            draw() {
+                ctx.globalAlpha = this.life;
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function animateParticles() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                p.update();
+                p.draw();
+                if (p.life <= 0) particles.splice(i, 1);
+            }
+            requestAnimationFrame(animateParticles);
+        }
+        animateParticles();
+
+        // --- Animation Logic ---
+        const tl = gsap.timeline();
+        const hero = document.getElementById('hero-container');
+        const shield = document.getElementById('shield');
+        const flash = document.getElementById('flash');
+        const road = document.getElementById('road');
+        const schoolSign = document.getElementById('school-sign');
+        const progressFill = document.getElementById('progress-fill');
+
+        // Continuous Background Movement (Slower)
+        gsap.to(road, { backgroundPosition: "-100px 0", duration: 2, repeat: -1, ease: "linear" });
+        // Hero Idle Float (Slower)
+        gsap.to(hero, { y: -15, duration: 2.5, yoyo: true, repeat: -1, ease: "sine.inOut" });
+
+        // Timeline Progression (Total 45 Seconds)
+        const totalDuration = 45;
+        gsap.to(progressFill, { width: "100%", duration: totalDuration, ease: "none" });
+
+        // Function to spawn an enemy attack
+        function spawnAttack(enemyName, startX, startY, delay) {
+            const enemy = document.createElement('div');
+            enemy.className = 'enemy';
+            enemy.innerText = enemyName;
+            enemy.style.left = startX;
+            enemy.style.top = startY;
+            enemy.style.transform = 'translate(-50%, -50%) scale(0.5)';
+            document.getElementById('scene').appendChild(enemy);
+
+            // 1. Enemy appears and holds to be read
+            tl.to(enemy, {
+                opacity: 1,
+                scale: 1,
+                duration: 1.2,          // Slower fade in
+                delay: delay,           // Wait before appearing
+                ease: "back.out(1.5)"
+            })
+            // 2. Pause to let the user read the text
+            .to(enemy, {
+                scale: 1.1,
+                duration: 1.5,          // Hold time
+                ease: "power1.inOut"
+            })
+            // 3. Glide slowly toward the hero
+            .to(enemy, {
+                x: (window.innerWidth / 2) - (parseInt(startX) + 100), 
+                y: (window.innerHeight / 2) - (parseInt(startY) + 20),
+                scale: 1.3,
+                duration: 3.5,          // Slow glide
+                ease: "power2.in",
+                onComplete: () => {
+                    triggerDefense(enemy);
+                }
+            });
+        }
+
+        function triggerDefense(enemy) {
+            // Flash Shield (Slower)
+            gsap.fromTo(shield, 
+                { opacity: 1, scale: 0.8, rotation: 0 }, 
+                { opacity: 0, scale: 1.5, rotation: 90, duration: 0.8, ease: "power2.out" }
+            );
+            
+            // Screen Flash
+            gsap.fromTo(flash, { opacity: 0.3 }, { opacity: 0, duration: 0.4 });
+
+            // Camera Shake
+            gsap.fromTo(document.getElementById('scene'), 
+                { x: -8, y: -8 }, 
+                { x: 8, y: 8, duration: 0.05, yoyo: true, repeat: 7, clearProps: "x,y" }
+            );
+
+            // Create Particles
+            const rect = hero.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            for (let i = 0; i < 40; i++) {
+                particles.push(new Particle(centerX, centerY));
+            }
+
+            // Knockback Enemy (Slower)
+            const directionX = (Math.random() > 0.5 ? 1 : -1) * (window.innerWidth);
+            const directionY = (Math.random() - 0.5) * 500;
+
+            gsap.to(enemy, {
+                x: directionX,
+                y: directionY,
+                rotation: 720,
+                opacity: 0,
+                scale: 0,
+                duration: 1.2, // Slower knockback
+                ease: "power2.in",
+                onComplete: () => enemy.remove()
+            });
+        }
+
+        // --- Choreographing the 45 Second Sequence ---
+
+        // Intro
+        tl.from(hero, { scale: 0, opacity: 0, duration: 2, ease: "elastic.out(1, 0.5)" });
+
+        // Wave 1
+        tl.add(() => {
+            spawnAttack("PROCRASTINATION", "10%", "30%", 0);
+            spawnAttack("LAZINESS", "90%", "70%", 2);
+        }, 4);
+
+        // Wave 2
+        tl.add(() => {
+            spawnAttack("INATTENTIVE", "20%", "80%", 0);
+            spawnAttack("ABSENT-MINDED", "80%", "20%", 2);
+        }, 12);
+
+        // Wave 3
+        tl.add(() => {
+            spawnAttack("DISTRACTION", "10%", "50%", 0);
+            spawnAttack("OVERTHINKING", "90%", "50%", 2);
+        }, 20);
+
+        // Wave 4
+        tl.add(() => {
+            spawnAttack("DOOM SCROLLING", "15%", "20%", 0);
+            spawnAttack("PROCRASTINATION", "85%", "80%", 2);
+            spawnAttack("EXCUSES", "50%", "10%", 4);
+        }, 28);
+
+        // Final Boss
+        tl.add(() => {
+            spawnAttack("ULTIMATE DREAD", "50%", "10%", 0);
+        }, 36);
+
+        // The climax flash and victory
+        tl.to(shield, { opacity: 1, scale: 2, duration: 1.5, ease: "power4.out" }, 40)
+          .to(flash, { opacity: 1, duration: 0.3 }, 41)
+          .to(flash, { opacity: 0, duration: 0.8 }, 41.3)
+          .to(shield, { opacity: 0, duration: 0.8 }, 41.3);
+
+        // Reveal the School
+        tl.to(schoolSign, { 
+            right: "10%", 
+            duration: 2.5, 
+            ease: "power3.out" 
+        }, 42)
+        .to(hero, { 
+            boxShadow: "0 0 80px rgba(74, 222, 128, 0.8)", 
+            borderColor: "#4ade80",
+            duration: 2 
+        }, 42)
+        .to(progressFill, { backgroundColor: "#4ade80", boxShadow: "0 0 10px #4ade80", duration: 1 }, 43);
+
+    </script>
+</body>
+</html>
